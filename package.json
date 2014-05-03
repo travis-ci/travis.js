@@ -11,6 +11,7 @@
     "grunt-jasmine-bundle": "^0.2.0",
     "grunt-jasmine-node": "^0.2.1",
     "source-map-support": "^0.2.6",
-    "grunt-contrib-connect": "^0.7.1"
+    "grunt-contrib-connect": "^0.7.1",
+    "grunt-saucelabs": "^5.1.2"
   }
 }
