@@ -35,11 +35,24 @@ module.exports = (grunt) ->
       options: { extensions: 'coffee' },
       all: ['spec/']
 
+    "saucelabs-jasmine":
+      all:
+        options:
+          urls:        ['http://127.0.0.1:9595/spec/runner.html']
+          build:       process.env.TRAVIS_JOB_ID
+          concurrency: 3
+          testname:    'travis.js'
+          browsers: [
+            browserName: "chrome",
+            platform: "OS X 10.9"
+          ]
+
   grunt.loadNpmTasks 'grunt-contrib-coffee'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-connect'
   grunt.loadNpmTasks 'grunt-jasmine-node'
+  grunt.loadNpmTasks 'grunt-saucelabs'
 
   grunt.registerTask 'spec',    ['connect', 'jasmine_node']
   grunt.registerTask 'build',   ['coffee', 'uglify']
