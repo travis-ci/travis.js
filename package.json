@@ -1,0 +1,16 @@
+{
+  "name": "travis",
+  "description": "JavaScript client library for Travis CI",
+  "version": "0.1.0",
+  "devDependencies": {
+    "coffee-script": "~1.7.1",
+    "grunt": "~0.4.4",
+    "grunt-contrib-coffee": "^0.10.1",
+    "grunt-contrib-uglify": "^0.4.0",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-jasmine-bundle": "^0.2.0",
+    "grunt-jasmine-node": "^0.2.1",
+    "source-map-support": "^0.2.6",
+    "grunt-contrib-connect": "^0.7.1"
+  }
+}
