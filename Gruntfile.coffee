@@ -58,7 +58,7 @@ module.exports = (grunt) ->
         autoWatch: false
         singleRun: true
       dev:
-        browsers: ['Chrome']
+        browsers: ['Chrome', 'Firefox']
       sauce:
         sauceLabs:
           testName: 'travis.js'
