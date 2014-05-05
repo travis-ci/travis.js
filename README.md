@@ -1,4 +1,6 @@
-# Travis CI  JavaScript Client
+# Travis CI  JavaScript Client [![Build Status](https://travis-ci.org/rkh/travis.js.svg?branch=master)](https://travis-ci.org/rkh/travis.js)
+
+[![Selenium Test Status](https://saucelabs.com/browser-matrix/rkh-oss.svg)](https://saucelabs.com/u/rkh-oss)
 
 Welcome to **travis.js**, a Travis CI JavaScript Client that works both in your web browser and in node.js.
 
