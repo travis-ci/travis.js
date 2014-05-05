@@ -2,7 +2,9 @@ Travis = require('../support') unless Travis?
 
 describe 'Travis.HTTP', ->
   beforeEach ->
-    @http = new Travis.HTTP base: "https://api.travis-ci.org"
+    @http = new Travis.HTTP
+      base: "https://api.travis-ci.org"
+      headers: { "Accept": "application/vnd.travis-ci.2+json" }
 
   describe 'get', ->
     it 'triggers http calls', (done) ->

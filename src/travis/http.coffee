@@ -58,7 +58,7 @@ class Travis.HTTP
       @rawRequest = (options, callback) ->
         req       = new XMLHttpRequest()
         req.open(options.method, options.url, true)
-        req.setRequestHeader(name, value) for name, value in options.headers
+        req.setRequestHeader(name, value) for name, value of options.headers
         req.onreadystatechange = ->
           if req.readyState == 4
             headers = {}
