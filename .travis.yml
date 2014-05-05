@@ -1,4 +1,11 @@
 language: node_js
 node_js: '0.10'
 before_install: npm install -g grunt-cli
-script: grunt
+script: grunt ci:$PLATFORM
+env:
+  matrix:
+    - PLATFORM=node
+    - PLATFORM=sauce
+  global:
+  - secure: urDhQVNvb6fRTJYkY6GhnX7S5T6cnHMqe3Et2Apf8LFgaOSTmrYoj76Fm/qJZL515lvCi3tzmW7w1cn1/aJJEZaBCMXd1gbs9w0cpsQYyFhPwaFLD1stevTFWNiqHSwNtP9WfN3dRGeadOzxldREShKlMhreYmxhxYi2aOA+3Kw=
+  - secure: eqztNZnQkZRP99SzIXXRKTn6WGZuEs8UrEmeRg/9tcJixz4+tPC87HdCoWenIHojeTho3vf9DcAH+LEh6OZSxQOuEzarIDTWJJXD5lYDW9ogeBmD4JWSxpTdVhxUaLc3IRJ4x7VW0qozYEtOu3L9vXo3YQWoTq60kRN5YUjN+kk=

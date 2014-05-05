@@ -1,4 +1,24 @@
 module.exports = (grunt) ->
+  browsers =
+    sl_chrome:
+      base: 'SauceLabs'
+      browserName: 'chrome'
+      platform: 'Windows 7'
+    sl_firefox:
+      base: 'SauceLabs',
+      browserName: 'firefox'
+      version: '27'
+    sl_ios_safari:
+      base: 'SauceLabs'
+      browserName: 'iphone'
+      platform: 'OS X 10.9'
+      version: '7.1'
+    sl_ie_11:
+      base: 'SauceLabs'
+      browserName: 'internet explorer'
+      platform: 'Windows 8.1'
+      version: '11'
+
   grunt.initConfig
     pkg: grunt.file.readJSON('package.json')
 
@@ -23,25 +43,38 @@ module.exports = (grunt) ->
       files: ['{src,spec}/**/*.coffee']
       tasks: ['build']
 
-    connect:
-      server:
-        options:
-          port: process.env.port || 9595
-          middleware: (connect, options, middlewares) ->
-            middlewares.unshift require('./spec/support/server')
-            return middlewares
-
     jasmine_node:
       options: { extensions: 'coffee' },
       all: ['spec/']
 
+    karma:
+      options:
+        basePath: 'build'
+        frameworks: ['jasmine']
+        files: ['travis.js', 'travis.spec.js']
+        reporters: 'dots'
+        port: 9876
+        colors: true
+        autoWatch: false
+        singleRun: true
+      dev:
+        browsers: ['Chrome']
+      sauce:
+        sauceLabs:
+          testName: 'travis.js'
+        customLaunchers: browsers
+        browsers: Object.keys(browsers)
+        reporters: ['dots', 'saucelabs']
+
   grunt.loadNpmTasks 'grunt-contrib-coffee'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
   grunt.loadNpmTasks 'grunt-contrib-watch'
-  grunt.loadNpmTasks 'grunt-contrib-connect'
   grunt.loadNpmTasks 'grunt-jasmine-node'
+  grunt.loadNpmTasks 'grunt-karma'
 
-  grunt.registerTask 'spec',    ['connect', 'jasmine_node']
+  grunt.registerTask 'spec',    ['build', 'jasmine_node']
   grunt.registerTask 'build',   ['coffee', 'uglify']
-  grunt.registerTask 'default', ['build', 'spec']
-  grunt.registerTask 'dev',     ['connect', 'watch']
+  grunt.registerTask 'default', ['spec', 'karma:dev']
+
+  grunt.registerTask 'ci:node',  ['spec']
+  grunt.registerTask 'ci:sauce', ['build', 'karma:sauce']
