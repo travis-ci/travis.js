@@ -1,6 +1,8 @@
 ## Generating Files
 
-**Never edit files in `build` manually!**
+**Never edit files in `build` or the `README.md` manually!**
+
+Instead, edit `README.coffe.md` and the files in `src` and `spec`.
 
 ## Releases
 
@@ -18,13 +20,16 @@ On file changes:
 
 ## Run Specs
 
-In Node.js:
+In Node.js and local browsers via karma:
 
     $ grunt
 
-In the browser:
+Just in Node.js:
 
-    $ grunt dev
-    # now open http://localhost:9595
+    $ grunt spec
 
-Set the `port` env variable if port 9595 is already taken.
+On Saucelabs (set `SAUCE_USER` and `SAUCE_ACCESS_KEY`):
+
+    $ grunt build karma:sauce
+
+You can also open `spec/runner.html` in any browser. Note that source mapping will not work if it is served via the `file` protocol.

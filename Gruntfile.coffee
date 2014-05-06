@@ -1,3 +1,19 @@
+chalk    = require 'chalk'
+coffee   = require 'coffee-script'
+replace  = (options) ->
+  result = ''
+  source = options.source
+  format = options.formatRest || (e) -> e
+  while source.length > 0
+    if match  = source.match(options.pattern)
+      result += format source.slice(0, match.index)
+      result += if typeof(options.with) == 'function' then options.with(match) else options.with
+      source  = source.slice(match.index + match[0].length)
+    else
+      result += format source
+      source  = ''
+  result
+
 module.exports = (grunt) ->
   browsers =
     sl_chrome:
@@ -35,7 +51,7 @@ module.exports = (grunt) ->
         dest: 'build/travis.min.js'
 
     watch:
-      files: ['{src,spec}/**/*.coffee']
+      files: ['{src,spec}/**/*.coffee', '*.coffee.md']
       tasks: ['build']
 
     jasmine_node:
@@ -67,6 +83,21 @@ module.exports = (grunt) ->
         browsers: Object.keys(browsers)
         reporters: ['dots', 'saucelabs']
 
+  grunt.registerTask 'readme', 'generate JS readme', ->
+    formatCoffee = (source) ->
+      source = replace(source: coffee.compile(source, bare: true), pattern: /return /, with: '')
+      source = replace(source: source, pattern: /\n\n(\w+ = [^\n]+)/, with: (m) -> "\n#{m[1]}")
+      source
+
+    result = replace
+      source:     grunt.file.read 'README.coffee.md'
+      pattern:    /\n``` *coffee *\n([^`]+)\n```\n/m
+      with:       (match) -> "\n``` javascript\n#{formatCoffee(match[1])}```"
+      formatRest: (rest)  -> replace(source: rest, pattern: /CoffeeScript/, with: 'JavaScript')
+
+    grunt.file.write 'README.md', result
+    grunt.log.writeln('File ' + chalk.cyan('README.md') + ' created.');
+
   grunt.loadNpmTasks 'grunt-contrib-coffee'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
   grunt.loadNpmTasks 'grunt-contrib-watch'
@@ -74,7 +105,7 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks 'grunt-karma'
 
   grunt.registerTask 'spec',    ['build', 'jasmine_node']
-  grunt.registerTask 'build',   ['coffee', 'uglify']
+  grunt.registerTask 'build',   ['coffee', 'uglify', 'readme']
   grunt.registerTask 'default', ['spec', 'karma:dev']
 
   grunt.registerTask 'ci:node',  ['spec']
