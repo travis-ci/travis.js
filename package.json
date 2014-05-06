@@ -1,7 +1,7 @@
 {
   "name": "travis",
   "description": "JavaScript client library for Travis CI",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha1",
   "devDependencies": {
     "coffee-script": "~1.7.1",
     "grunt": "~0.4.4",
