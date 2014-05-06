@@ -35,7 +35,7 @@ travis.config(function(config) {
 var travis = new Travis;
 
 travis.config(function(config) {
-  alert(config.host)
+  alert(config.host);
 });
 </script>
 ```
