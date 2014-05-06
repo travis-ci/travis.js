@@ -6,7 +6,7 @@ Instead, edit `README.coffe.md` and the files in `src` and `spec`.
 
 ## Releases
 
-When you change the version number, do it in `package.json`, `src/travis.coffee` and `spec/travis-spec.coffee`.
+When you change the version number, do it in `package.json`, `bower.json`, `src/travis.coffee` and `spec/travis-spec.coffee`.
 
 ## Compile JavaScript
 

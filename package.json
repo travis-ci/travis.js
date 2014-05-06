@@ -1,7 +1,7 @@
 {
   "name": "travis",
   "description": "JavaScript client library for Travis CI",
-  "version": "0.1.0-alpha3",
+  "version": "0.1.0",
   "homepage": "https://github.com/rkh/travis.js",
   "keywords": ["travis", "travis-ci", "travis-pro"],
   "author": ["Konstantin Haase <konstantin@travis-ci.com>"],

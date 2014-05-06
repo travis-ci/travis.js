@@ -1,0 +1,16 @@
+{
+  "name": "travis",
+  "version": "0.1.0",
+  "homepage": "https://github.com/rkh/travis.js",
+  "authors": [
+    "Konstantin Haase <konstantin.mailinglists@googlemail.com>"
+  ],
+  "description": "JavaScript client library for Travis CI",
+  "main": "bin/travis.js",
+  "keywords": [
+    "travis-ci",
+    "travis",
+    "travis-pro"
+  ],
+  "license": "MIT"
+}

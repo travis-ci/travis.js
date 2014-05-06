@@ -7,6 +7,7 @@ describe 'Travis', ->
     expect(Travis.version).toBe(expectedVersion)
     if require?
       expect(require('../package.json').version).toBe(expectedVersion)
+      expect(require('../bower.json').version).toBe(expectedVersion)
 
   it 'can subscribe to global events', (done) ->
     Travis.on 'example', (event) ->
