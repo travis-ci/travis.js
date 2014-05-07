@@ -75,7 +75,7 @@ class Travis.HTTP
         req       = new XMLHttpRequest()
         req.open(options.method, options.url, true)
         for name, value of options.headers
-          req.setRequestHeader(name, value)
+          req.setRequestHeader(name, value) if name.toLowerCase() != 'user-agent'
         req.onreadystatechange = ->
           if req.readyState == 4
             headers = {}
