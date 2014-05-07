@@ -50,6 +50,7 @@ class Travis.Promise
 
   then: (callback, errback, trigger = null) ->
     trigger = (callback? or errback?) if trigger == null
+    errback = ((err) -> throw(err))   if callback? and errback == undefined
     if @succeeded
       callback(@data) if callback?
     else if @failed

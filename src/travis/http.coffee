@@ -29,7 +29,7 @@ class Travis.HTTP
     return promise
 
   prepareRequest: (method, path, params, options) ->
-    throw "path is missing" unless path?
+    throw new Error "path is missing" unless path?
     options            = { callback: options } if typeof(options) == 'function'
     options            = { } unless options?
     options.method     = method
@@ -75,7 +75,6 @@ class Travis.HTTP
         req       = new XMLHttpRequest()
         req.open(options.method, options.url, true)
         for name, value of options.headers
-          name = 'X-User-Agent' if name.toLowerCase() == 'user-agent'
           req.setRequestHeader(name, value)
         req.onreadystatechange = ->
           if req.readyState == 4
