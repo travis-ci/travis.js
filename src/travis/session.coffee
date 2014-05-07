@@ -14,12 +14,12 @@ class Travis.Session
     new Travis.Session(options)
 
   config: (callback) ->
-    @_config ?= @http.get('/config').wrap (response) -> response.body.config
-    @_config.then(callback)
+    @config.promise ?= @http.get('/config').wrap (response) -> response.body.config
+    @config.promise.then(callback)
 
   github: (callback) ->
-    @_github ?= @config().wrap (config) -> new Travis.HTTP(base: config.github.api_url)
-    @_github.then(callback)
+    @github.promise ?= @config().wrap (config) -> new Travis.HTTP(base: config.github.api_url)
+    @github.promise.then(callback)
 
   authenticate: (options, callback) ->
     options = { token: options } if typeof(options) == 'string'
