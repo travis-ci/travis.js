@@ -1,9 +1,9 @@
 class Travis.Promise
   constructor: (closure) ->
-    @onSuccess = []
-    @onFailure = []
-    @data      = null
-    @closure   = closure
+    @_onSuccess = []
+    @_onFailure = []
+    @data       = null
+    @closure    = closure
     @setState('sleeping')
 
   setState: (stateName, data) ->
@@ -23,21 +23,24 @@ class Travis.Promise
   succeed: (data) ->
     @setState('succeeded', data)
     Travis.notify('promise:succeed', data)
-    callback(@data) for callback in @onSuccess
-    @onSuccess = []
-    @onFailure = []
+    callback(@data) for callback in @_onSuccess
+    @_onSuccess = []
+    @_onFailure = []
     return this
 
   fail: (data) ->
     @setState('failed', data)
     Travis.notify('promise:fail', data)
-    callback(@data) for callback in @onFailure
-    @onSuccess = []
-    @onFailure = []
+    callback(@data) for callback in @_onFailure
+    @_onSuccess = []
+    @_onFailure = []
     return this
 
   onSuccess: (callback) ->
-    @then(callback, false, false)
+    @then(callback, null, false)
+
+  onFailure: (callback) ->
+    @then(null, callback, false)
 
   wrap: (wrapper) ->
     wrapped = this
@@ -52,8 +55,8 @@ class Travis.Promise
     else if @failed
       errback(@data) if errback?
     else
-      @onSuccess.push callback if callback?
-      @onFailure.push errback  if errback?
+      @_onSuccess.push callback if callback?
+      @_onFailure.push errback  if errback?
       @run() if trigger
     return this
 
