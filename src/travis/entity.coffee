@@ -43,7 +43,7 @@ class Travis.Entity
 
     for attributeName in attributeNames
       if typeof(attributeName) == 'string'
-        throw "unknown attribute #{attributeName}" unless @attributeNames.indexOf(attributeName)
+        throw "unknown attribute #{attributeName}" unless @attributeNames.indexOf(attributeName) >= 0
         attributeList.push(attributeName)
       else
         callbacks.push(attributeName)

@@ -22,6 +22,7 @@ class Travis.Promise
 
   succeed: (data) ->
     @setState('succeeded', data)
+    Travis.notify('promise:succeed', data)
     callback(@data) for callback in @onSuccess
     @onSuccess = []
     @onFailure = []
@@ -29,6 +30,7 @@ class Travis.Promise
 
   fail: (data) ->
     @setState('failed', data)
+    Travis.notify('promise:fail', data)
     callback(@data) for callback in @onFailure
     @onSuccess = []
     @onFailure = []
