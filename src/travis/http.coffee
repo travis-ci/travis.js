@@ -65,15 +65,18 @@ class Travis.HTTP
         separator = '&'
 
   constructor: (options) ->
-    @base           = options.base
-    @defaultHeaders = options.headers || {}
+    @base                          = options.base
+    @defaultHeaders                = options.headers || {}
+    @defaultHeaders['User-Agent'] ?= "travis.js/#{Travis.version} #{Travis.System.info()}"
 
     if XMLHttpRequest?
       xhrHeaders  = options.xhrHeaders || ["content-type", "cache-control", "expires", "etag", "last-modified"]
       @rawRequest = (options, callback) ->
         req       = new XMLHttpRequest()
         req.open(options.method, options.url, true)
-        req.setRequestHeader(name, value) for name, value of options.headers
+        for name, value of options.headers
+          name = 'X-User-Agent' if name.toLowerCase() == 'user-agent'
+          req.setRequestHeader(name, value)
         req.onreadystatechange = ->
           if req.readyState == 4
             headers = {}
