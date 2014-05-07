@@ -1,9 +1,34 @@
 class Travis.Promise
+  @delegate: (methods..., closure) ->
+    (new this(closure)).delegate(methods...)
+
+  delegate: (methods...) ->
+    for method in methods
+      if typeof(method) == 'string'
+        @delegateMethod(method, method)
+      else
+        @delegateMethod(from, to) for from, to of method
+    return this
+
+  delegateMethod: (from, to) ->
+    this[from] ?= (args..., callback) =>
+      if typeof(callback) == 'function'
+        promise = this[from](args...)
+        promise.then(callback)
+      else
+        args.push(callback)
+        new Travis.Promise (p) =>
+          console.log('promise:delegate', from, to, args)
+          @onSuccess (payload) -> payload[to](args...).then(p.succeed, p.fail)
+          @onFailure (payload) -> p.fail(payload)
+          @run()
+    return this
+
   constructor: (closure) ->
-    @onSuccess = []
-    @onFailure = []
-    @data      = null
-    @closure   = closure
+    @_onSuccess = []
+    @_onFailure = []
+    @data       = null
+    @closure    = closure
     @setState('sleeping')
 
   setState: (stateName, data) ->
@@ -21,23 +46,27 @@ class Travis.Promise
     return this
 
   succeed: (data) ->
+    console.log(this)
     @setState('succeeded', data)
     Travis.notify('promise:succeed', data)
-    callback(@data) for callback in @onSuccess
-    @onSuccess = []
-    @onFailure = []
+    callback(@data) for callback in @_onSuccess
+    @_onSuccess = []
+    @_onFailure = []
     return this
 
   fail: (data) ->
     @setState('failed', data)
     Travis.notify('promise:fail', data)
-    callback(@data) for callback in @onFailure
-    @onSuccess = []
-    @onFailure = []
+    callback(@data) for callback in @_onFailure
+    @_onSuccess = []
+    @_onFailure = []
     return this
 
   onSuccess: (callback) ->
-    @then(callback, false, false)
+    @then(callback, null, false)
+
+  onFailure: (callback) ->
+    @then(null, callback, false)
 
   wrap: (wrapper) ->
     wrapped = this
@@ -52,8 +81,8 @@ class Travis.Promise
     else if @failed
       errback(@data) if errback?
     else
-      @onSuccess.push callback if callback?
-      @onFailure.push errback  if errback?
+      @_onSuccess.push callback if callback?
+      @_onFailure.push errback  if errback?
       @run() if trigger
     return this
 
