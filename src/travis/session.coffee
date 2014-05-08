@@ -5,8 +5,59 @@ class Travis.Session
     headers                  = { "Accept": "application/vnd.travis-ci.2+json" }
     headers['Authorization'] = "token #{options.token}" if options.token?
     @http                    = new Travis.HTTP(headers: headers, base: options.url || Travis.endpoints.default)
-
+    @data                    = {}
     Travis.Delegator.define this, @github, 'get'
+
+  repository: (options) ->
+    options = { slug: options } if typeof(options) == 'string'
+    options = { id:   options } if typeof(options) == 'number'
+    @entity('repository', options)
+
+  repositories: (options, callback) ->
+    @load '/repos', options, callback, (result) -> result.repos
+
+  load: (path, options, callback, format) ->
+    format ?= (e) -> e
+    if typeof(options) == 'function'
+      otherCallback = options
+      options = {}
+
+    @http.get(path, options)
+      .wrap (response) => format @loadData(response.body)
+      .then otherCallback
+      .then callback
+
+  loadData: (data) ->
+    result = {}
+    for entityKey, value of data
+      if entityType       = Travis.EntityMap.one[entityKey]
+        result[entityKey] = entity if entity = @entity(entityType, value)
+      else if entityType  = Travis.EntityMap.many[entityKey]
+        result[entityKey] = []
+        for attributes in value
+          result[entityKey].push(entity) if entity = @entity(entityType, attributes)
+    result
+
+  _entity: (entityType, indexKey, index) ->
+    prototype   = Travis.Entity[entityType.name] || Travis.Entity
+    storeAccess = => @_entityData(entityType, indexKey, index)
+    new prototype(this, storeAccess)
+
+  _entityData: (entityType, indexKey, index) ->
+    store = @data[entityType.name] ?= {}
+    store = store[indexKey]        ?= {}
+    store[index]                   ?= { data: {}, complete: false }
+
+  entity: (entityType, data, complete = false) ->
+    entityType          = Travis.Entities[entityType] if typeof(entityType) == 'string'
+    entity              = null
+    for indexKey in entityType.index
+      if index          = data[indexKey]
+        entity         ?= @_entity(entityType, indexKey, index)
+        store           = @_entityData(entityType, indexKey, index)
+        store.complete  = true if complete
+        store.data[key] = value for key, value of data
+    entity
 
   session: (options) ->
     for key, value of @_options
