@@ -42,7 +42,6 @@ module.exports = (grunt) ->
 
     uglify:
       options:
-        mangle: false
         sourceMap: true
         sourceMapIn: 'build/travis.js.map'
         sourceMapName: 'build/travis.min.js.map'
