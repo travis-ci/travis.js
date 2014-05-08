@@ -4,8 +4,8 @@ before_install: npm install -g grunt-cli
 script: grunt ci:$PLATFORM
 env:
   matrix:
-    - PLATFORM=node
-    - PLATFORM=sauce
+  - PLATFORM=node
+  - PLATFORM=sauce
   global:
-  - secure: urDhQVNvb6fRTJYkY6GhnX7S5T6cnHMqe3Et2Apf8LFgaOSTmrYoj76Fm/qJZL515lvCi3tzmW7w1cn1/aJJEZaBCMXd1gbs9w0cpsQYyFhPwaFLD1stevTFWNiqHSwNtP9WfN3dRGeadOzxldREShKlMhreYmxhxYi2aOA+3Kw=
-  - secure: eqztNZnQkZRP99SzIXXRKTn6WGZuEs8UrEmeRg/9tcJixz4+tPC87HdCoWenIHojeTho3vf9DcAH+LEh6OZSxQOuEzarIDTWJJXD5lYDW9ogeBmD4JWSxpTdVhxUaLc3IRJ4x7VW0qozYEtOu3L9vXo3YQWoTq60kRN5YUjN+kk=
+  - secure: slFkwEnE42Ch1TDXtFYpRXEZbgu6Mx8WIp6bbJNzWZvAfGfodGHCaSeGIirhNXmZQoO6PUU5jzWCkvhznjpWxQwRFirYKquGR8JRH3KvHK96NJTXBocbaLWRBz4xT4pBlXLzvjPd0uLlgJg9sfEs9MM6Lwk8hgDO+QyhjcqUerA=
+  - secure: pZOmMxMt8g1DHHEcMy0tFdWm18s008ojub54sCaevzlSCjxeJBTAsYmD2K7F3Kt6Qxdr9bk/dw/UZ5aYd9vXyZr+w3UvqI9ww22rfL3nd/VRqOLAK1k2IaiEW9fYK8yFP9XjnaMgPRL1CuAEH2WcGw6NpUx6ek0hrWFMyKY04pA=
