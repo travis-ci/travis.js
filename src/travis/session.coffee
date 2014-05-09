@@ -48,6 +48,12 @@ class Travis.Session
     store = store[indexKey]        ?= {}
     store[index]                   ?= { data: {}, complete: false }
 
+  _parseField: (fieldName, fieldValue) ->
+    if /_at$/.test(fieldName) and fieldValue?
+      new Date Date.parse(fieldValue)
+    else
+      fieldValue
+
   entity: (entityType, data, complete = false) ->
     entityType          = Travis.Entities[entityType] if typeof(entityType) == 'string'
     entity              = null
@@ -56,7 +62,7 @@ class Travis.Session
         entity         ?= @_entity(entityType, indexKey, index)
         store           = @_entityData(entityType, indexKey, index)
         store.complete  = true if complete
-        store.data[key] = value for key, value of data
+        store.data[key] = @_parseField(key, value) for key, value of data
     entity
 
   session: (options) ->
