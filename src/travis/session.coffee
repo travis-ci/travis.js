@@ -92,3 +92,7 @@ class Travis.Session
       promise = new Travis.Promise (promise) ->
         promise.fail new Error "token or githubToken required"
     promise.then(callback)
+
+  clearCache: ->
+    @data = {}
+    this
