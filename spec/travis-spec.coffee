@@ -2,7 +2,7 @@ Travis = require('./support') unless Travis?
 
 describe 'Travis', ->
 
-  expectedVersion = '0.1.0'
+  expectedVersion = '0.1.1'
   it "has version #{expectedVersion}", ->
     expect(Travis.version).toBe(expectedVersion)
     if require?

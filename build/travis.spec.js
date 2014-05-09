@@ -13,7 +13,7 @@ if (Travis == null) {
 
 describe('Travis', function() {
   var expectedVersion;
-  expectedVersion = '0.1.0';
+  expectedVersion = '0.1.1';
   it("has version " + expectedVersion, function() {
     expect(Travis.version).toBe(expectedVersion);
     if (typeof require !== "undefined" && require !== null) {

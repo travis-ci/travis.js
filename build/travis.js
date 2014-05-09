@@ -8,7 +8,7 @@ Travis = function(options) {
   return new Travis.Session(options);
 };
 
-Travis.version = '0.1.0';
+Travis.version = '0.1.1';
 
 Travis.endpoints = {
   org: 'https://api.travis-ci.org',
