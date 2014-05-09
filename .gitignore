@@ -6,6 +6,5 @@ pids
 lib-cov
 coverage
 .grunt
-build
 node_modules
 doc
