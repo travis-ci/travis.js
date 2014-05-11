@@ -18,22 +18,44 @@ Travis.on = (events..., callback) ->
       Travis.callbacks[event] = [] unless Travis.callbacks[event]?
       Travis.callbacks[event].push(callback)
 
+Travis._setup  = ->
+  for name, entity of Travis.Entity
+    entity._setup() if entity._setup?
+  Travis._setup = ->
+
 module.exports = Travis if module?
 window.exports = Travis if window?
 @Travis        = Travis
 
 Travis.Delegator =
-  define: (caller, constructor, methods...) ->
-    for method in methods
-      constructor[method] = @delegator(caller, constructor, method)
+  define: (methods..., caller, constructor) ->
+    @eachMethod methods..., (method) => @delegate(caller, constructor, method)
 
-  delegator: (caller, constructor, method) ->
-    (args..., callback) ->
+  defineNested: (methods..., caller, constructor) ->
+    @eachMethod methods..., (method) => @delegateNested(caller, constructor, method)
+
+  defineSimple: (methods..., caller, constructor) ->
+    @eachMethod methods..., (method) => @delegateSimple(caller, constructor, method)
+
+  eachMethod: (methods..., callback) ->
+    for method in methods
+      if typeof(method) == 'string'
+        callback(method)
+      else if method.delegationMethods
+        callback(subMethod) for subMethod in method.delegationMethods()
+      else if method.prototype?
+        callback(subMethod) for subMethod of method.prototype
+      else
+        callback(subMethod) for subMethod of method
+
+  delegate: (caller, constructor, method) ->
+    return if method.indexOf('_') == 0
+    constructor[method] = (args..., callback) ->
       if typeof(callback) == 'function'
         constructor[method].apply(this, args).then(callback)
       else
         args.push(callback)
-        outerPromise = constructor.call(caller)
+        outerPromise = if constructor.then? then constructor else constructor.call(caller)
         new Travis.Promise (delegationPromise) ->
           outerPromise.then (outerResult) ->
             innerPromise = outerResult[method].apply(outerResult, args)
@@ -41,7 +63,25 @@ Travis.Delegator =
             innerPromise.catch (innerError) -> delegationPromise.fail(innerError)
           outerPromise.catch (outerError)   -> delegationPromise.fail(outerError)
 
+  delegateNested: (caller, constructor, method) ->
+    constructor[method] = (args...) ->
+      constructor.call caller, (result) ->
+        result[method].call(result, args...)
+
+  delegateSimple: (caller, constructor, method) ->
+    constructor[method] = constructor.call(caller)[method]
 Travis.Entities =
+
+  account:
+    index: ['login', ['type', 'id']]
+    one:   ['account']
+    many:  ['accounts']
+
+  build:
+    index: ['id', ['repository_id', 'number']]
+    one:   ['build']
+    many:  ['builds']
+
   repository:
     index: ['id', 'slug']
     one:   ['repo', 'repository']
@@ -54,9 +94,17 @@ for name, entity of Travis.Entities
   Travis.EntityMap.many[key] = entity for key in entity.many
 
 class Travis.Entity
+  @_setup = ->
+    defineAttribute = (attr) =>
+      console.log(attr)
+      @::[attr]    ?= (callback) -> @attribute(attr, callback)
+    defineAttribute(attribute) for attribute in @::attributeNames     if @::attributeNames?
+    defineAttribute(attribute) for attribute of @::computedAttributes if @::computedAttributes?
+
   constructor: (session, store) ->
     @session = session
     @_store  = store
+    @_setup()
 
   complete: (checkAttributes = true) ->
     return true unless @_fetch?
@@ -70,11 +118,13 @@ class Travis.Entity
       if dependsOn = @computedAttributes?[attribute]?.dependsOn
         return false unless @hasAttributes(dependsOn...)
       else
-        return false if data[@_apiName(attribute)] == undefined
+        return false if data[@session._clientName(attribute)] == undefined
     return true
 
   attributes: (list..., callback) ->
-    list.push(callback) if typeof(callback) == 'string'
+    if typeof(callback) == 'string'
+      list.push(callback)
+      callback = null
 
     if list.length == 0
       list = @attributeNames
@@ -84,8 +134,15 @@ class Travis.Entity
     if @complete(false) or @hasAttributes(list...)
       promise = new Travis.Promise (p) => p.succeed @_attributes(list)
     else
-      promise = @_fetch().wrap => @_attributes(list)
+      promise = @_fetch().wrap =>
+        @_store().complete = true
+        @_attributes(list)
     promise.then(callback)
+
+  attribute: (name, callback) ->
+    @attributes(name).wrap((a) -> a[name]).then(callback)
+
+  _setup: ->
 
   _attributes: (list) ->
     data    = @_store().data
@@ -95,15 +152,19 @@ class Travis.Entity
       if computation = @computedAttributes?[name]
         compute[name] = computation
       else
-        result[name] = data[@_apiName(name)]
+        result[name] = data[@session._clientName(name)]
     for key, value of compute
       result[key] = value.compute(data)
     result
 
-  _clientName: (string) -> string.replace /_([a-z])/g, (g) -> g[1].toUpperCase()
-  _apiName:    (string) -> string.replace /[A-Z]/g, (g) -> "_" + g[0].toLowerCase()
+  _cache: (bucket..., key, callback) ->
+    cache               = @_store().cache
+    cache[bucket]      ?= {}
+    cache[bucket][key] ?= callback.call(this)
 
 class Travis.HTTP
+  @delegationMethods: -> ['get', 'head', 'post', 'put', 'patch', 'delete', 'request']
+
   get:    (path, params, options) -> @request('GET',    path, params, options)
   head:   (path, params, options) -> @request('HEAD',   path, params, options)
   post:   (path, params, options) -> @request('POST',   path, params, options)
@@ -206,6 +267,8 @@ class Travis.HTTP
         request.end()
 
 class Travis.Promise
+  @succeed: (data) -> (new Travis.Promise).succeed(data)
+
   constructor: (closure) ->
     @_onSuccess = []
     @_onFailure = []
@@ -249,11 +312,29 @@ class Travis.Promise
   onFailure: (callback) ->
     @then(null, callback, false)
 
-  wrap: (wrapper) ->
-    wrapped = this
-    promise = new Travis.Promise -> wrapped.run()
-    @then ((input) -> promise.succeed wrapper(input)), ((input) -> promise.fail(input)), false
-    promise
+  wrap: (delegations..., wrapper) ->
+    wrapped  = this
+    promise  = new Travis.Promise -> wrapped.run()
+    callback = (input) ->
+      if wrapper.length > 1
+         wrapper(input, promise)
+       else
+         promise.succeed wrapper(input)
+    @then callback, ((input) -> promise.fail(input)), false
+    promise.expect(delegations...)
+
+  iterate: (delegations...) ->
+    @each = (callback, errback) ->
+      throw new Error "missing callback" unless callback?
+      iterator = (result) -> callback(entry) for entry in result
+      @then(iterator, errback)
+    Travis.Delegator.defineNested(delegations..., this, @each)
+    @iterate = -> this
+    return this
+
+  expect: (delegations...) ->
+    Travis.Delegator.define(delegations..., this, this)
+    this
 
   then: (callback, errback, trigger = null) ->
     trigger = (callback? or errback?) if trigger == null
@@ -273,21 +354,38 @@ class Travis.Promise
     return this
 class Travis.Session
   constructor: (options = {}) ->
+    Travis._setup()
+
     options                  = { url: Travis.endpoints[options] || options } if typeof(options) == 'string'
     @_options                = options
     headers                  = { "Accept": "application/vnd.travis-ci.2+json" }
     headers['Authorization'] = "token #{options.token}" if options.token?
     @http                    = new Travis.HTTP(headers: headers, base: options.url || Travis.endpoints.default)
     @data                    = {}
-    Travis.Delegator.define this, @github, 'get'
+
+    Travis.Delegator.define Travis.HTTP, this, @github
+    Travis.Delegator.define Travis.HTTP, this, @github()
+    Travis.Delegator.defineSimple 'each', this, @repositories
+
+  account: (options) ->
+    options = { login: options } if typeof(options) == 'string'
+    @entity 'account', options
+
+  accounts: (options, callback) ->
+    @load '/accounts', options, callback, (result) -> result.accounts
+
+  build: (options) ->
+    options = { id: options } if typeof(options) == 'number'
+    @entity 'build', options
 
   repository: (options) ->
     options = { slug: options } if typeof(options) == 'string'
     options = { id:   options } if typeof(options) == 'number'
-    @entity('repository', options)
+    @entity 'repository', options
 
   repositories: (options, callback) ->
-    @load '/repos', options, callback, (result) -> result.repos
+    promise = @load '/repos', options, callback, (result) -> result.repos
+    promise.iterate(Travis.Entity.repository)
 
   load: (path, options, callback, format) ->
     format ?= (e) -> e
@@ -319,7 +417,7 @@ class Travis.Session
   _entityData: (entityType, indexKey, index) ->
     store = @data[entityType.name] ?= {}
     store = store[indexKey]        ?= {}
-    store[index]                   ?= { data: {}, complete: false }
+    store[index]                   ?= { data: {}, complete: false, cache: {} }
 
   _parseField: (fieldName, fieldValue) ->
     if /_at$/.test(fieldName) and fieldValue?
@@ -327,15 +425,33 @@ class Travis.Session
     else
       fieldValue
 
+  _readField: (object, field) ->
+    return object[@_clientName(field)] || object[@_apiName(field)] if typeof(field) == 'string'
+    result = []
+    for subfield in field
+      value = @_readField(object, subfield)
+      return undefined if value == undefined
+      result.push value
+    result
+
+  _clientName: (string) ->
+    string.replace /_([a-z])/g, (g) -> g[1].toUpperCase()
+
+  _apiName: (string) ->
+    string.replace /[A-Z]/g, (g) -> "_" + g[0].toLowerCase()
+
   entity: (entityType, data, complete = false) ->
-    entityType          = Travis.Entities[entityType] if typeof(entityType) == 'string'
-    entity              = null
+    if typeof(entityType) == 'string'
+      entityName = entityType
+      entityType = Travis.Entities[entityType]
+      throw new Error "unknown entity type #{entityName}" unless entityType?
+    entity = null
     for indexKey in entityType.index
-      if index          = data[indexKey]
-        entity         ?= @_entity(entityType, indexKey, index)
-        store           = @_entityData(entityType, indexKey, index)
-        store.complete  = true if complete
-        store.data[key] = @_parseField(key, value) for key, value of data
+      if index                        = @_readField(data, indexKey)
+        entity                       ?= @_entity(entityType, indexKey, index)
+        store                         = @_entityData(entityType, indexKey, index)
+        store.complete                = true if complete
+        store.data[@_clientName(key)] = @_parseField(key, value) for key, value of data
     entity
 
   session: (options) ->
@@ -384,6 +500,28 @@ Travis.System =
       new Buffer(string).toString('base64')
     else
       btoa(string)
+class Travis.Entity.account extends Travis.Entity
+  attributeNames: [ 'id', 'name', 'login', 'type', 'reposCount', 'subscribed' ]
+  _fetch: -> @session.accounts(all: true)
+
+class Travis.Entity.build extends Travis.Entity
+  attributeNames: [
+    'id', 'repositoryId', 'commitId', 'number', 'pullRequest', 'pullRequestNumber', 'pullRequestTitle',
+    'config', 'state', 'startedAt', 'finishedAt', 'duration', 'jobIds'
+  ]
+
+  computedAttributes:
+    push:
+      dependsOn: ['pullRequest']
+      compute: (attributes) -> !attributes.pullRequest
+
+  _fetch: ->
+    attributes = @_store().data
+    if attributes.id
+      @session.load "/builds/#{attributes.id}"
+    else
+      @session.load "/repos/#{attributes.repositoryId}/builds", number: attributes.number
+
 class Travis.Entity.repository extends Travis.Entity
   attributeNames: [
     'id', 'slug', 'description', 'lastBuildId', 'lastBuildNumber', 'lastBuildState',
@@ -398,6 +536,41 @@ class Travis.Entity.repository extends Travis.Entity
       dependsOn: ['slug']
       compute: (attributes) -> attributes.slug.split('/', 2)[1]
 
-  _fetch: ->
+  lastBuild: (callback) ->
+    promise = @_cache 'build', 'last', =>
+      @attributes().wrap Travis.Entity.build, (attributes, inner) =>
+        build = @build
+          id:           attributes.lastBuildId
+          number:       attributes.lastBuildNumber
+          state:        attributes.lastBuildState
+          duration:     attributes.lastBuildDuration
+          startedAt:    attributes.lastBuildStartedAt
+          finishedAt:   attributes.lastBuildFinishedAt
+          repositoryId: attributes.id
+        build.then (b) -> inner.succeed(b)
+    promise.then(callback)
+
+  build: (options, callback) ->
+    options = { number: options.toString() } if typeof(options) == 'number'
+    options = { number: optsion            } if typeof(options) == 'string'
+
+    if options.id
+      promise = Travis.Promise.succeed @session.build(options)
+    else
+      promise = @_cache 'build', 'number', options.number, =>
+        @attributes('repositoryId').wrap (a) =>
+          options.repositoryId = a.repositoryId
+          @session.build(options)
+
+    promise.expect(Travis.Entity.build).then(callback)
+
+  builds: (options, callback) ->
+    promise = @session.load @_url('/builds'), options, callback, (result) -> result.builds
+    promise.iterate(Travis.Entity.build)
+
+  _url: (suffix = "") ->
     attributes = @_store().data
-    @session.load "/repos/#{attributes.id || attributes.slug}"
+    "/repos/#{attributes.id || attributes.slug}#{suffix}"
+
+  _fetch: ->
+    @session.load @_url()

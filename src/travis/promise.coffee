@@ -1,4 +1,6 @@
 class Travis.Promise
+  @succeed: (data) -> (new Travis.Promise).succeed(data)
+
   constructor: (closure) ->
     @_onSuccess = []
     @_onFailure = []
@@ -42,11 +44,29 @@ class Travis.Promise
   onFailure: (callback) ->
     @then(null, callback, false)
 
-  wrap: (wrapper) ->
-    wrapped = this
-    promise = new Travis.Promise -> wrapped.run()
-    @then ((input) -> promise.succeed wrapper(input)), ((input) -> promise.fail(input)), false
-    promise
+  wrap: (delegations..., wrapper) ->
+    wrapped  = this
+    promise  = new Travis.Promise -> wrapped.run()
+    callback = (input) ->
+      if wrapper.length > 1
+         wrapper(input, promise)
+       else
+         promise.succeed wrapper(input)
+    @then callback, ((input) -> promise.fail(input)), false
+    promise.expect(delegations...)
+
+  iterate: (delegations...) ->
+    @each = (callback, errback) ->
+      throw new Error "missing callback" unless callback?
+      iterator = (result) -> callback(entry) for entry in result
+      @then(iterator, errback)
+    Travis.Delegator.defineNested(delegations..., this, @each)
+    @iterate = -> this
+    return this
+
+  expect: (delegations...) ->
+    Travis.Delegator.define(delegations..., this, this)
+    this
 
   then: (callback, errback, trigger = null) ->
     trigger = (callback? or errback?) if trigger == null

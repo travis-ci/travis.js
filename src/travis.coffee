@@ -18,6 +18,11 @@ Travis.on = (events..., callback) ->
       Travis.callbacks[event] = [] unless Travis.callbacks[event]?
       Travis.callbacks[event].push(callback)
 
+Travis._setup  = ->
+  for name, entity of Travis.Entity
+    entity._setup() if entity._setup?
+  Travis._setup = ->
+
 module.exports = Travis if module?
 window.exports = Travis if window?
 @Travis        = Travis

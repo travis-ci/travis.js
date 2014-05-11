@@ -1,4 +1,6 @@
 class Travis.HTTP
+  @delegationMethods: -> ['get', 'head', 'post', 'put', 'patch', 'delete', 'request']
+
   get:    (path, params, options) -> @request('GET',    path, params, options)
   head:   (path, params, options) -> @request('HEAD',   path, params, options)
   post:   (path, params, options) -> @request('POST',   path, params, options)

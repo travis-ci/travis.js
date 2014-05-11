@@ -1,7 +1,15 @@
 class Travis.Entity
+  @_setup = ->
+    defineAttribute = (attr) =>
+      console.log(attr)
+      @::[attr]    ?= (callback) -> @attribute(attr, callback)
+    defineAttribute(attribute) for attribute in @::attributeNames     if @::attributeNames?
+    defineAttribute(attribute) for attribute of @::computedAttributes if @::computedAttributes?
+
   constructor: (session, store) ->
     @session = session
     @_store  = store
+    @_setup()
 
   complete: (checkAttributes = true) ->
     return true unless @_fetch?
@@ -15,11 +23,13 @@ class Travis.Entity
       if dependsOn = @computedAttributes?[attribute]?.dependsOn
         return false unless @hasAttributes(dependsOn...)
       else
-        return false if data[@_apiName(attribute)] == undefined
+        return false if data[@session._clientName(attribute)] == undefined
     return true
 
   attributes: (list..., callback) ->
-    list.push(callback) if typeof(callback) == 'string'
+    if typeof(callback) == 'string'
+      list.push(callback)
+      callback = null
 
     if list.length == 0
       list = @attributeNames
@@ -29,8 +39,15 @@ class Travis.Entity
     if @complete(false) or @hasAttributes(list...)
       promise = new Travis.Promise (p) => p.succeed @_attributes(list)
     else
-      promise = @_fetch().wrap => @_attributes(list)
+      promise = @_fetch().wrap =>
+        @_store().complete = true
+        @_attributes(list)
     promise.then(callback)
+
+  attribute: (name, callback) ->
+    @attributes(name).wrap((a) -> a[name]).then(callback)
+
+  _setup: ->
 
   _attributes: (list) ->
     data    = @_store().data
@@ -40,10 +57,12 @@ class Travis.Entity
       if computation = @computedAttributes?[name]
         compute[name] = computation
       else
-        result[name] = data[@_apiName(name)]
+        result[name] = data[@session._clientName(name)]
     for key, value of compute
       result[key] = value.compute(data)
     result
 
-  _clientName: (string) -> string.replace /_([a-z])/g, (g) -> g[1].toUpperCase()
-  _apiName:    (string) -> string.replace /[A-Z]/g, (g) -> "_" + g[0].toLowerCase()
+  _cache: (bucket..., key, callback) ->
+    cache               = @_store().cache
+    cache[bucket]      ?= {}
+    cache[bucket][key] ?= callback.call(this)

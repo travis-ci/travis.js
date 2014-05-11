@@ -1,4 +1,15 @@
 Travis.Entities =
+
+  account:
+    index: ['login', ['type', 'id']]
+    one:   ['account']
+    many:  ['accounts']
+
+  build:
+    index: ['id', ['repository_id', 'number']]
+    one:   ['build']
+    many:  ['builds']
+
   repository:
     index: ['id', 'slug']
     one:   ['repo', 'repository']

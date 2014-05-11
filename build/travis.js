@@ -63,6 +63,18 @@ Travis.on = function() {
   }
 };
 
+Travis._setup = function() {
+  var entity, name, _ref;
+  _ref = Travis.Entity;
+  for (name in _ref) {
+    entity = _ref[name];
+    if (entity._setup != null) {
+      entity._setup();
+    }
+  }
+  return Travis._setup = function() {};
+};
+
 if (typeof module !== "undefined" && module !== null) {
   module.exports = Travis;
 }
@@ -75,24 +87,85 @@ this.Travis = Travis;
 
 Travis.Delegator = {
   define: function() {
-    var caller, constructor, method, methods, _i, _len, _results;
-    caller = arguments[0], constructor = arguments[1], methods = 3 <= arguments.length ? __slice.call(arguments, 2) : [];
+    var caller, constructor, methods, _i;
+    methods = 3 <= arguments.length ? __slice.call(arguments, 0, _i = arguments.length - 2) : (_i = 0, []), caller = arguments[_i++], constructor = arguments[_i++];
+    return this.eachMethod.apply(this, __slice.call(methods).concat([(function(_this) {
+      return function(method) {
+        return _this.delegate(caller, constructor, method);
+      };
+    })(this)]));
+  },
+  defineNested: function() {
+    var caller, constructor, methods, _i;
+    methods = 3 <= arguments.length ? __slice.call(arguments, 0, _i = arguments.length - 2) : (_i = 0, []), caller = arguments[_i++], constructor = arguments[_i++];
+    return this.eachMethod.apply(this, __slice.call(methods).concat([(function(_this) {
+      return function(method) {
+        return _this.delegateNested(caller, constructor, method);
+      };
+    })(this)]));
+  },
+  defineSimple: function() {
+    var caller, constructor, methods, _i;
+    methods = 3 <= arguments.length ? __slice.call(arguments, 0, _i = arguments.length - 2) : (_i = 0, []), caller = arguments[_i++], constructor = arguments[_i++];
+    return this.eachMethod.apply(this, __slice.call(methods).concat([(function(_this) {
+      return function(method) {
+        return _this.delegateSimple(caller, constructor, method);
+      };
+    })(this)]));
+  },
+  eachMethod: function() {
+    var callback, method, methods, subMethod, _i, _j, _len, _results;
+    methods = 2 <= arguments.length ? __slice.call(arguments, 0, _i = arguments.length - 1) : (_i = 0, []), callback = arguments[_i++];
     _results = [];
-    for (_i = 0, _len = methods.length; _i < _len; _i++) {
-      method = methods[_i];
-      _results.push(constructor[method] = this.delegator(caller, constructor, method));
+    for (_j = 0, _len = methods.length; _j < _len; _j++) {
+      method = methods[_j];
+      if (typeof method === 'string') {
+        _results.push(callback(method));
+      } else if (method.delegationMethods) {
+        _results.push((function() {
+          var _k, _len1, _ref, _results1;
+          _ref = method.delegationMethods();
+          _results1 = [];
+          for (_k = 0, _len1 = _ref.length; _k < _len1; _k++) {
+            subMethod = _ref[_k];
+            _results1.push(callback(subMethod));
+          }
+          return _results1;
+        })());
+      } else if (method.prototype != null) {
+        _results.push((function() {
+          var _results1;
+          _results1 = [];
+          for (subMethod in method.prototype) {
+            _results1.push(callback(subMethod));
+          }
+          return _results1;
+        })());
+      } else {
+        _results.push((function() {
+          var _results1;
+          _results1 = [];
+          for (subMethod in method) {
+            _results1.push(callback(subMethod));
+          }
+          return _results1;
+        })());
+      }
     }
     return _results;
   },
-  delegator: function(caller, constructor, method) {
-    return function() {
+  delegate: function(caller, constructor, method) {
+    if (method.indexOf('_') === 0) {
+      return;
+    }
+    return constructor[method] = function() {
       var args, callback, outerPromise, _i;
       args = 2 <= arguments.length ? __slice.call(arguments, 0, _i = arguments.length - 1) : (_i = 0, []), callback = arguments[_i++];
       if (typeof callback === 'function') {
         return constructor[method].apply(this, args).then(callback);
       } else {
         args.push(callback);
-        outerPromise = constructor.call(caller);
+        outerPromise = constructor.then != null ? constructor : constructor.call(caller);
         return new Travis.Promise(function(delegationPromise) {
           outerPromise.then(function(outerResult) {
             var innerPromise;
@@ -110,10 +183,33 @@ Travis.Delegator = {
         });
       }
     };
+  },
+  delegateNested: function(caller, constructor, method) {
+    return constructor[method] = function() {
+      var args;
+      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      return constructor.call(caller, function(result) {
+        var _ref;
+        return (_ref = result[method]).call.apply(_ref, [result].concat(__slice.call(args)));
+      });
+    };
+  },
+  delegateSimple: function(caller, constructor, method) {
+    return constructor[method] = constructor.call(caller)[method];
   }
 };
 
 Travis.Entities = {
+  account: {
+    index: ['login', ['type', 'id']],
+    one: ['account'],
+    many: ['accounts']
+  },
+  build: {
+    index: ['id', ['repository_id', 'number']],
+    one: ['build'],
+    many: ['builds']
+  },
   repository: {
     index: ['id', 'slug'],
     one: ['repo', 'repository'],
@@ -143,9 +239,37 @@ for (name in _ref) {
 }
 
 Travis.Entity = (function() {
+  Entity._setup = function() {
+    var attribute, defineAttribute, _k, _len2, _ref3, _results;
+    defineAttribute = (function(_this) {
+      return function(attr) {
+        var _base;
+        console.log(attr);
+        return (_base = _this.prototype)[attr] != null ? _base[attr] : _base[attr] = function(callback) {
+          return this.attribute(attr, callback);
+        };
+      };
+    })(this);
+    if (this.prototype.attributeNames != null) {
+      _ref3 = this.prototype.attributeNames;
+      for (_k = 0, _len2 = _ref3.length; _k < _len2; _k++) {
+        attribute = _ref3[_k];
+        defineAttribute(attribute);
+      }
+    }
+    if (this.prototype.computedAttributes != null) {
+      _results = [];
+      for (attribute in this.prototype.computedAttributes) {
+        _results.push(defineAttribute(attribute));
+      }
+      return _results;
+    }
+  };
+
   function Entity(session, store) {
     this.session = session;
     this._store = store;
+    this._setup();
   }
 
   Entity.prototype.complete = function(checkAttributes) {
@@ -175,7 +299,7 @@ Travis.Entity = (function() {
           return false;
         }
       } else {
-        if (data[this._apiName(attribute)] === void 0) {
+        if (data[this.session._clientName(attribute)] === void 0) {
           return false;
         }
       }
@@ -188,6 +312,7 @@ Travis.Entity = (function() {
     list = 2 <= arguments.length ? __slice.call(arguments, 0, _k = arguments.length - 1) : (_k = 0, []), callback = arguments[_k++];
     if (typeof callback === 'string') {
       list.push(callback);
+      callback = null;
     }
     if (list.length === 0) {
       list = this.attributeNames;
@@ -208,12 +333,21 @@ Travis.Entity = (function() {
     } else {
       promise = this._fetch().wrap((function(_this) {
         return function() {
+          _this._store().complete = true;
           return _this._attributes(list);
         };
       })(this));
     }
     return promise.then(callback);
   };
+
+  Entity.prototype.attribute = function(name, callback) {
+    return this.attributes(name).wrap(function(a) {
+      return a[name];
+    }).then(callback);
+  };
+
+  Entity.prototype._setup = function() {};
 
   Entity.prototype._attributes = function(list) {
     var computation, compute, data, result, value, _k, _len2, _ref3;
@@ -225,7 +359,7 @@ Travis.Entity = (function() {
       if (computation = (_ref3 = this.computedAttributes) != null ? _ref3[name] : void 0) {
         compute[name] = computation;
       } else {
-        result[name] = data[this._apiName(name)];
+        result[name] = data[this.session._clientName(name)];
       }
     }
     for (key in compute) {
@@ -235,16 +369,14 @@ Travis.Entity = (function() {
     return result;
   };
 
-  Entity.prototype._clientName = function(string) {
-    return string.replace(/_([a-z])/g, function(g) {
-      return g[1].toUpperCase();
-    });
-  };
-
-  Entity.prototype._apiName = function(string) {
-    return string.replace(/[A-Z]/g, function(g) {
-      return "_" + g[0].toLowerCase();
-    });
+  Entity.prototype._cache = function() {
+    var bucket, cache, callback, key, _base, _k;
+    bucket = 3 <= arguments.length ? __slice.call(arguments, 0, _k = arguments.length - 2) : (_k = 0, []), key = arguments[_k++], callback = arguments[_k++];
+    cache = this._store().cache;
+    if (cache[bucket] == null) {
+      cache[bucket] = {};
+    }
+    return (_base = cache[bucket])[key] != null ? _base[key] : _base[key] = callback.call(this);
   };
 
   return Entity;
@@ -252,6 +384,10 @@ Travis.Entity = (function() {
 })();
 
 Travis.HTTP = (function() {
+  HTTP.delegationMethods = function() {
+    return ['get', 'head', 'post', 'put', 'patch', 'delete', 'request'];
+  };
+
   HTTP.prototype.get = function(path, params, options) {
     return this.request('GET', path, params, options);
   };
@@ -477,6 +613,10 @@ Travis.HTTP = (function() {
 })();
 
 Travis.Promise = (function() {
+  Promise.succeed = function(data) {
+    return (new Travis.Promise).succeed(data);
+  };
+
   function Promise(closure) {
     this._onSuccess = [];
     this._onFailure = [];
@@ -540,18 +680,57 @@ Travis.Promise = (function() {
     return this.then(null, callback, false);
   };
 
-  Promise.prototype.wrap = function(wrapper) {
-    var promise, wrapped;
+  Promise.prototype.wrap = function() {
+    var callback, delegations, promise, wrapped, wrapper, _k;
+    delegations = 2 <= arguments.length ? __slice.call(arguments, 0, _k = arguments.length - 1) : (_k = 0, []), wrapper = arguments[_k++];
     wrapped = this;
     promise = new Travis.Promise(function() {
       return wrapped.run();
     });
-    this.then((function(input) {
-      return promise.succeed(wrapper(input));
-    }), (function(input) {
+    callback = function(input) {
+      if (wrapper.length > 1) {
+        return wrapper(input, promise);
+      } else {
+        return promise.succeed(wrapper(input));
+      }
+    };
+    this.then(callback, (function(input) {
       return promise.fail(input);
     }), false);
-    return promise;
+    return promise.expect.apply(promise, delegations);
+  };
+
+  Promise.prototype.iterate = function() {
+    var delegations, _ref3;
+    delegations = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    this.each = function(callback, errback) {
+      var iterator;
+      if (callback == null) {
+        throw new Error("missing callback");
+      }
+      iterator = function(result) {
+        var entry, _k, _len2, _results;
+        _results = [];
+        for (_k = 0, _len2 = result.length; _k < _len2; _k++) {
+          entry = result[_k];
+          _results.push(callback(entry));
+        }
+        return _results;
+      };
+      return this.then(iterator, errback);
+    };
+    (_ref3 = Travis.Delegator).defineNested.apply(_ref3, __slice.call(delegations).concat([this], [this.each]));
+    this.iterate = function() {
+      return this;
+    };
+    return this;
+  };
+
+  Promise.prototype.expect = function() {
+    var delegations, _ref3;
+    delegations = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    (_ref3 = Travis.Delegator).define.apply(_ref3, __slice.call(delegations).concat([this], [this]));
+    return this;
   };
 
   Promise.prototype.then = function(callback, errback, trigger) {
@@ -603,6 +782,7 @@ Travis.Session = (function() {
     if (options == null) {
       options = {};
     }
+    Travis._setup();
     if (typeof options === 'string') {
       options = {
         url: Travis.endpoints[options] || options
@@ -620,8 +800,34 @@ Travis.Session = (function() {
       base: options.url || Travis.endpoints["default"]
     });
     this.data = {};
-    Travis.Delegator.define(this, this.github, 'get');
+    Travis.Delegator.define(Travis.HTTP, this, this.github);
+    Travis.Delegator.define(Travis.HTTP, this, this.github());
+    Travis.Delegator.defineSimple('each', this, this.repositories);
   }
+
+  Session.prototype.account = function(options) {
+    if (typeof options === 'string') {
+      options = {
+        login: options
+      };
+    }
+    return this.entity('account', options);
+  };
+
+  Session.prototype.accounts = function(options, callback) {
+    return this.load('/accounts', options, callback, function(result) {
+      return result.accounts;
+    });
+  };
+
+  Session.prototype.build = function(options) {
+    if (typeof options === 'number') {
+      options = {
+        id: options
+      };
+    }
+    return this.entity('build', options);
+  };
 
   Session.prototype.repository = function(options) {
     if (typeof options === 'string') {
@@ -638,9 +844,11 @@ Travis.Session = (function() {
   };
 
   Session.prototype.repositories = function(options, callback) {
-    return this.load('/repos', options, callback, function(result) {
+    var promise;
+    promise = this.load('/repos', options, callback, function(result) {
       return result.repos;
     });
+    return promise.iterate(Travis.Entity.repository);
   };
 
   Session.prototype.load = function(path, options, callback, format) {
@@ -700,7 +908,8 @@ Travis.Session = (function() {
     store = store[indexKey] != null ? store[indexKey] : store[indexKey] = {};
     return store[index] != null ? store[index] : store[index] = {
       data: {},
-      complete: false
+      complete: false,
+      cache: {}
     };
   };
 
@@ -712,19 +921,52 @@ Travis.Session = (function() {
     }
   };
 
+  Session.prototype._readField = function(object, field) {
+    var result, subfield, value, _k, _len2;
+    if (typeof field === 'string') {
+      return object[this._clientName(field)] || object[this._apiName(field)];
+    }
+    result = [];
+    for (_k = 0, _len2 = field.length; _k < _len2; _k++) {
+      subfield = field[_k];
+      value = this._readField(object, subfield);
+      if (value === void 0) {
+        return void 0;
+      }
+      result.push(value);
+    }
+    return result;
+  };
+
+  Session.prototype._clientName = function(string) {
+    return string.replace(/_([a-z])/g, function(g) {
+      return g[1].toUpperCase();
+    });
+  };
+
+  Session.prototype._apiName = function(string) {
+    return string.replace(/[A-Z]/g, function(g) {
+      return "_" + g[0].toLowerCase();
+    });
+  };
+
   Session.prototype.entity = function(entityType, data, complete) {
-    var index, indexKey, store, value, _k, _len2, _ref3;
+    var entityName, index, indexKey, store, value, _k, _len2, _ref3;
     if (complete == null) {
       complete = false;
     }
     if (typeof entityType === 'string') {
+      entityName = entityType;
       entityType = Travis.Entities[entityType];
+      if (entityType == null) {
+        throw new Error("unknown entity type " + entityName);
+      }
     }
     entity = null;
     _ref3 = entityType.index;
     for (_k = 0, _len2 = _ref3.length; _k < _len2; _k++) {
       indexKey = _ref3[_k];
-      if (index = data[indexKey]) {
+      if (index = this._readField(data, indexKey)) {
         if (entity == null) {
           entity = this._entity(entityType, indexKey, index);
         }
@@ -734,7 +976,7 @@ Travis.Session = (function() {
         }
         for (key in data) {
           value = data[key];
-          store.data[key] = this._parseField(key, value);
+          store.data[this._clientName(key)] = this._parseField(key, value);
         }
       }
     }
@@ -835,6 +1077,59 @@ Travis.System = {
   }
 };
 
+Travis.Entity.account = (function(_super) {
+  __extends(account, _super);
+
+  function account() {
+    return account.__super__.constructor.apply(this, arguments);
+  }
+
+  account.prototype.attributeNames = ['id', 'name', 'login', 'type', 'reposCount', 'subscribed'];
+
+  account.prototype._fetch = function() {
+    return this.session.accounts({
+      all: true
+    });
+  };
+
+  return account;
+
+})(Travis.Entity);
+
+Travis.Entity.build = (function(_super) {
+  __extends(build, _super);
+
+  function build() {
+    return build.__super__.constructor.apply(this, arguments);
+  }
+
+  build.prototype.attributeNames = ['id', 'repositoryId', 'commitId', 'number', 'pullRequest', 'pullRequestNumber', 'pullRequestTitle', 'config', 'state', 'startedAt', 'finishedAt', 'duration', 'jobIds'];
+
+  build.prototype.computedAttributes = {
+    push: {
+      dependsOn: ['pullRequest'],
+      compute: function(attributes) {
+        return !attributes.pullRequest;
+      }
+    }
+  };
+
+  build.prototype._fetch = function() {
+    var attributes;
+    attributes = this._store().data;
+    if (attributes.id) {
+      return this.session.load("/builds/" + attributes.id);
+    } else {
+      return this.session.load("/repos/" + attributes.repositoryId + "/builds", {
+        number: attributes.number
+      });
+    }
+  };
+
+  return build;
+
+})(Travis.Entity);
+
 Travis.Entity.repository = (function(_super) {
   __extends(repository, _super);
 
@@ -859,10 +1154,76 @@ Travis.Entity.repository = (function(_super) {
     }
   };
 
-  repository.prototype._fetch = function() {
+  repository.prototype.lastBuild = function(callback) {
+    var promise;
+    promise = this._cache('build', 'last', (function(_this) {
+      return function() {
+        return _this.attributes().wrap(Travis.Entity.build, function(attributes, inner) {
+          var build;
+          build = _this.build({
+            id: attributes.lastBuildId,
+            number: attributes.lastBuildNumber,
+            state: attributes.lastBuildState,
+            duration: attributes.lastBuildDuration,
+            startedAt: attributes.lastBuildStartedAt,
+            finishedAt: attributes.lastBuildFinishedAt,
+            repositoryId: attributes.id
+          });
+          return build.then(function(b) {
+            return inner.succeed(b);
+          });
+        });
+      };
+    })(this));
+    return promise.then(callback);
+  };
+
+  repository.prototype.build = function(options, callback) {
+    var promise;
+    if (typeof options === 'number') {
+      options = {
+        number: options.toString()
+      };
+    }
+    if (typeof options === 'string') {
+      options = {
+        number: optsion
+      };
+    }
+    if (options.id) {
+      promise = Travis.Promise.succeed(this.session.build(options));
+    } else {
+      promise = this._cache('build', 'number', options.number, (function(_this) {
+        return function() {
+          return _this.attributes('repositoryId').wrap(function(a) {
+            options.repositoryId = a.repositoryId;
+            return _this.session.build(options);
+          });
+        };
+      })(this));
+    }
+    return promise.expect(Travis.Entity.build).then(callback);
+  };
+
+  repository.prototype.builds = function(options, callback) {
+    var promise;
+    promise = this.session.load(this._url('/builds'), options, callback, function(result) {
+      return result.builds;
+    });
+    return promise.iterate(Travis.Entity.build);
+  };
+
+  repository.prototype._url = function(suffix) {
     var attributes;
+    if (suffix == null) {
+      suffix = "";
+    }
     attributes = this._store().data;
-    return this.session.load("/repos/" + (attributes.id || attributes.slug));
+    return "/repos/" + (attributes.id || attributes.slug) + suffix;
+  };
+
+  repository.prototype._fetch = function() {
+    return this.session.load(this._url());
   };
 
   return repository;

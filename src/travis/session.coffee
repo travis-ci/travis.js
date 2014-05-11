@@ -1,20 +1,37 @@
 class Travis.Session
   constructor: (options = {}) ->
+    Travis._setup()
+
     options                  = { url: Travis.endpoints[options] || options } if typeof(options) == 'string'
     @_options                = options
     headers                  = { "Accept": "application/vnd.travis-ci.2+json" }
     headers['Authorization'] = "token #{options.token}" if options.token?
     @http                    = new Travis.HTTP(headers: headers, base: options.url || Travis.endpoints.default)
     @data                    = {}
-    Travis.Delegator.define this, @github, 'get'
+
+    Travis.Delegator.define Travis.HTTP, this, @github
+    Travis.Delegator.define Travis.HTTP, this, @github()
+    Travis.Delegator.defineSimple 'each', this, @repositories
+
+  account: (options) ->
+    options = { login: options } if typeof(options) == 'string'
+    @entity 'account', options
+
+  accounts: (options, callback) ->
+    @load '/accounts', options, callback, (result) -> result.accounts
+
+  build: (options) ->
+    options = { id: options } if typeof(options) == 'number'
+    @entity 'build', options
 
   repository: (options) ->
     options = { slug: options } if typeof(options) == 'string'
     options = { id:   options } if typeof(options) == 'number'
-    @entity('repository', options)
+    @entity 'repository', options
 
   repositories: (options, callback) ->
-    @load '/repos', options, callback, (result) -> result.repos
+    promise = @load '/repos', options, callback, (result) -> result.repos
+    promise.iterate(Travis.Entity.repository)
 
   load: (path, options, callback, format) ->
     format ?= (e) -> e
@@ -46,7 +63,7 @@ class Travis.Session
   _entityData: (entityType, indexKey, index) ->
     store = @data[entityType.name] ?= {}
     store = store[indexKey]        ?= {}
-    store[index]                   ?= { data: {}, complete: false }
+    store[index]                   ?= { data: {}, complete: false, cache: {} }
 
   _parseField: (fieldName, fieldValue) ->
     if /_at$/.test(fieldName) and fieldValue?
@@ -54,15 +71,33 @@ class Travis.Session
     else
       fieldValue
 
+  _readField: (object, field) ->
+    return object[@_clientName(field)] || object[@_apiName(field)] if typeof(field) == 'string'
+    result = []
+    for subfield in field
+      value = @_readField(object, subfield)
+      return undefined if value == undefined
+      result.push value
+    result
+
+  _clientName: (string) ->
+    string.replace /_([a-z])/g, (g) -> g[1].toUpperCase()
+
+  _apiName: (string) ->
+    string.replace /[A-Z]/g, (g) -> "_" + g[0].toLowerCase()
+
   entity: (entityType, data, complete = false) ->
-    entityType          = Travis.Entities[entityType] if typeof(entityType) == 'string'
-    entity              = null
+    if typeof(entityType) == 'string'
+      entityName = entityType
+      entityType = Travis.Entities[entityType]
+      throw new Error "unknown entity type #{entityName}" unless entityType?
+    entity = null
     for indexKey in entityType.index
-      if index          = data[indexKey]
-        entity         ?= @_entity(entityType, indexKey, index)
-        store           = @_entityData(entityType, indexKey, index)
-        store.complete  = true if complete
-        store.data[key] = @_parseField(key, value) for key, value of data
+      if index                        = @_readField(data, indexKey)
+        entity                       ?= @_entity(entityType, indexKey, index)
+        store                         = @_entityData(entityType, indexKey, index)
+        store.complete                = true if complete
+        store.data[@_clientName(key)] = @_parseField(key, value) for key, value of data
     entity
 
   session: (options) ->
