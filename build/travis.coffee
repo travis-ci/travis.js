@@ -96,7 +96,6 @@ for name, entity of Travis.Entities
 class Travis.Entity
   @_setup = ->
     defineAttribute = (attr) =>
-      console.log(attr)
       @::[attr]    ?= (callback) -> @attribute(attr, callback)
     defineAttribute(attribute) for attribute in @::attributeNames     if @::attributeNames?
     defineAttribute(attribute) for attribute of @::computedAttributes if @::computedAttributes?

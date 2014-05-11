@@ -244,7 +244,6 @@ Travis.Entity = (function() {
     defineAttribute = (function(_this) {
       return function(attr) {
         var _base;
-        console.log(attr);
         return (_base = _this.prototype)[attr] != null ? _base[attr] : _base[attr] = function(callback) {
           return this.attribute(attr, callback);
         };
