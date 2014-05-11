@@ -158,7 +158,7 @@ Travis.Delegator = {
     if (method.indexOf('_') === 0) {
       return;
     }
-    return constructor[method] = function() {
+    return constructor[method] != null ? constructor[method] : constructor[method] = function() {
       var args, callback, outerPromise, _i;
       args = 2 <= arguments.length ? __slice.call(arguments, 0, _i = arguments.length - 1) : (_i = 0, []), callback = arguments[_i++];
       if (typeof callback === 'function') {
@@ -185,7 +185,7 @@ Travis.Delegator = {
     };
   },
   delegateNested: function(caller, constructor, method) {
-    return constructor[method] = function() {
+    return constructor[method] != null ? constructor[method] : constructor[method] = function() {
       var args;
       args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
       return constructor.call(caller, function(result) {
@@ -195,7 +195,7 @@ Travis.Delegator = {
     };
   },
   delegateSimple: function(caller, constructor, method) {
-    return constructor[method] = constructor.call(caller)[method];
+    return constructor[method] != null ? constructor[method] : constructor[method] = constructor.call(caller)[method];
   }
 };
 

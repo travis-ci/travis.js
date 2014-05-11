@@ -50,7 +50,7 @@ Travis.Delegator =
 
   delegate: (caller, constructor, method) ->
     return if method.indexOf('_') == 0
-    constructor[method] = (args..., callback) ->
+    constructor[method] ?= (args..., callback) ->
       if typeof(callback) == 'function'
         constructor[method].apply(this, args).then(callback)
       else
@@ -64,12 +64,12 @@ Travis.Delegator =
           outerPromise.catch (outerError)   -> delegationPromise.fail(outerError)
 
   delegateNested: (caller, constructor, method) ->
-    constructor[method] = (args...) ->
+    constructor[method] ?= (args...) ->
       constructor.call caller, (result) ->
         result[method].call(result, args...)
 
   delegateSimple: (caller, constructor, method) ->
-    constructor[method] = constructor.call(caller)[method]
+    constructor[method] ?= constructor.call(caller)[method]
 Travis.Entities =
 
   account:
