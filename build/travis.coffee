@@ -146,6 +146,13 @@ class Travis.Entity
   attribute: (name, callback) ->
     @attributes(name).wrap((a) -> a[name]).then(callback)
 
+  reload: ->
+    store          = @_store()
+    store.cache    = {}
+    store.data     = {}
+    store.complete = false
+    this
+
   _setup: ->
 
   _attributes: (list) ->
@@ -205,6 +212,7 @@ class Travis.HTTP
             when 307, 308      then sendRequest(opt, url: headers['location'])
             else                    promise.fail generateResponse(status, headers, body)
       sendRequest(options)
+    promise.run() if method != 'HEAD' and method != 'GET'
     promise.then(options.callback) if options.callback?
     return promise
 
@@ -540,6 +548,16 @@ class Travis.Entity.build extends Travis.Entity
     push:
       dependsOn: ['pullRequest']
       compute: (attributes) -> !attributes.pullRequest
+
+  restart: (callback) -> @_action 'restart', callback
+  cancel:  (callback) -> @_action 'cancel',  callback
+
+  _action: (action, callback) ->
+    promise = new Travis.Promise (promise) =>
+      @id (id) =>
+        @session.http.post "/builds/#{id}/#{action}", (result) =>
+          promise.succeed @reload()
+    promise.run().then(callback)
 
   _fetch: ->
     attributes = @_store().data

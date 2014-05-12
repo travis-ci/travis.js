@@ -46,6 +46,13 @@ class Travis.Entity
   attribute: (name, callback) ->
     @attributes(name).wrap((a) -> a[name]).then(callback)
 
+  reload: ->
+    store          = @_store()
+    store.cache    = {}
+    store.data     = {}
+    store.complete = false
+    this
+
   _setup: ->
 
   _attributes: (list) ->

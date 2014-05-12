@@ -351,6 +351,15 @@ Travis.Entity = (function() {
     }).then(callback);
   };
 
+  Entity.prototype.reload = function() {
+    var store;
+    store = this._store();
+    store.cache = {};
+    store.data = {};
+    store.complete = false;
+    return this;
+  };
+
   Entity.prototype._setup = function() {};
 
   Entity.prototype._attributes = function(list) {
@@ -496,6 +505,9 @@ Travis.HTTP = (function() {
       };
       return sendRequest(options);
     });
+    if (method !== 'HEAD' && method !== 'GET') {
+      promise.run();
+    }
     if (options.callback != null) {
       promise.then(options.callback);
     }
@@ -1174,6 +1186,28 @@ Travis.Entity.build = (function(_super) {
         return !attributes.pullRequest;
       }
     }
+  };
+
+  build.prototype.restart = function(callback) {
+    return this._action('restart', callback);
+  };
+
+  build.prototype.cancel = function(callback) {
+    return this._action('cancel', callback);
+  };
+
+  build.prototype._action = function(action, callback) {
+    var promise;
+    promise = new Travis.Promise((function(_this) {
+      return function(promise) {
+        return _this.id(function(id) {
+          return _this.session.http.post("/builds/" + id + "/" + action, function(result) {
+            return promise.succeed(_this.reload());
+          });
+        });
+      };
+    })(this));
+    return promise.run().then(callback);
   };
 
   build.prototype._fetch = function() {

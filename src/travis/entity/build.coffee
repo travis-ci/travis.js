@@ -9,6 +9,16 @@ class Travis.Entity.build extends Travis.Entity
       dependsOn: ['pullRequest']
       compute: (attributes) -> !attributes.pullRequest
 
+  restart: (callback) -> @_action 'restart', callback
+  cancel:  (callback) -> @_action 'cancel',  callback
+
+  _action: (action, callback) ->
+    promise = new Travis.Promise (promise) =>
+      @id (id) =>
+        @session.http.post "/builds/#{id}/#{action}", (result) =>
+          promise.succeed @reload()
+    promise.run().then(callback)
+
   _fetch: ->
     attributes = @_store().data
     if attributes.id

@@ -27,6 +27,7 @@ class Travis.HTTP
             when 307, 308      then sendRequest(opt, url: headers['location'])
             else                    promise.fail generateResponse(status, headers, body)
       sendRequest(options)
+    promise.run() if method != 'HEAD' and method != 'GET'
     promise.then(options.callback) if options.callback?
     return promise
 
