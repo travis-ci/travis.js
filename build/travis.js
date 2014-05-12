@@ -459,7 +459,13 @@ Travis.HTTP = (function() {
     options = this.prepareRequest(method, path, params, options);
     http = this;
     promise = new Travis.Promise(function(promise) {
-      var generateResponse, sendRequest;
+      var generateError, generateResponse, sendRequest;
+      generateError = function(status, headers, body) {
+        var error;
+        error = new Error("HTTP " + (status.toString()) + ": " + body);
+        error.response = generateResponse(status, headers, body);
+        return error;
+      };
       generateResponse = function(status, headers, body) {
         var response;
         response = {
@@ -499,7 +505,7 @@ Travis.HTTP = (function() {
                 url: headers['location']
               });
             default:
-              return promise.fail(generateResponse(status, headers, body));
+              return promise.fail(generateError(status, headers, body));
           }
         });
       };
@@ -786,9 +792,11 @@ Travis.Promise = (function() {
       trigger = (callback != null) || (errback != null);
     }
     if ((callback != null) && errback === void 0) {
-      errback = (function(err) {
-        throw err;
-      });
+      errback = ((function(_this) {
+        return function(err) {
+          throw _this._error(err);
+        };
+      })(this));
     }
     if (this.succeeded) {
       if (callback != null) {
@@ -815,6 +823,14 @@ Travis.Promise = (function() {
   Promise.prototype["catch"] = function(errback) {
     this.then(null, errback);
     return this;
+  };
+
+  Promise.prototype._error = function(error) {
+    if (typeof error === 'string') {
+      return new Error(error);
+    } else {
+      return error;
+    }
   };
 
   return Promise;

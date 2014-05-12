@@ -197,6 +197,10 @@ class Travis.HTTP
     options            = @prepareRequest(method, path, params, options)
     http               = this
     promise            = new Travis.Promise (promise) ->
+      generateError    = (status, headers, body) ->
+        error          = new Error("HTTP #{status.toString()}: #{body}")
+        error.response = generateResponse(status, headers, body)
+        return error
       generateResponse = (status, headers, body) ->
         response       = { status: status, headers: headers, body: body }
         response.body  = JSON.parse(body) if body? and method != 'HEAD' and /^application\/json/.test(headers['content-type'])
@@ -210,7 +214,7 @@ class Travis.HTTP
             when 200, 201, 204 then promise.succeed generateResponse(status, headers, body)
             when 301, 302, 303 then sendRequest(opt, url: headers['location'], method: if method == 'HEAD' then method else 'GET')
             when 307, 308      then sendRequest(opt, url: headers['location'])
-            else                    promise.fail generateResponse(status, headers, body)
+            else                    promise.fail generateError(status, headers, body)
       sendRequest(options)
     promise.run() if method != 'HEAD' and method != 'GET'
     promise.then(options.callback) if options.callback?
@@ -360,7 +364,7 @@ class Travis.Promise
 
   then: (callback, errback, trigger = null) ->
     trigger = (callback? or errback?) if trigger == null
-    errback = ((err) -> throw(err))   if callback? and errback == undefined
+    errback = ((err) => throw(@_error(err))) if callback? and errback == undefined
     if @succeeded
       callback(@data) if callback?
     else if @failed
@@ -374,6 +378,9 @@ class Travis.Promise
   catch: (errback) ->
     @then(null, errback)
     return this
+
+  _error: (error) ->
+    if typeof(error) == 'string' then new Error(error) else error
 class Travis.Session
   constructor: (options = {}) ->
     Travis._setup()

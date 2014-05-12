@@ -70,7 +70,7 @@ class Travis.Promise
 
   then: (callback, errback, trigger = null) ->
     trigger = (callback? or errback?) if trigger == null
-    errback = ((err) -> throw(err))   if callback? and errback == undefined
+    errback = ((err) => throw(@_error(err))) if callback? and errback == undefined
     if @succeeded
       callback(@data) if callback?
     else if @failed
@@ -84,3 +84,6 @@ class Travis.Promise
   catch: (errback) ->
     @then(null, errback)
     return this
+
+  _error: (error) ->
+    if typeof(error) == 'string' then new Error(error) else error
