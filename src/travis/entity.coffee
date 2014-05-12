@@ -65,3 +65,14 @@ class Travis.Entity
     cache               = @_store().cache
     cache[bucket]      ?= {}
     cache[bucket][key] ?= callback.call(this)
+
+  then: (callback) ->
+    callback(this) if callback?
+    return this
+
+  run: -> this
+  catch: -> this
+  onSuccess: -> this
+  onFailure: -> this
+  wrap: (delegations..., wrapper) ->
+    Travis.Promise.succeed(wrapper(this)).expect(delegations...)

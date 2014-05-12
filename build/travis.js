@@ -205,6 +205,11 @@ Travis.Entities = {
     one: ['account'],
     many: ['accounts']
   },
+  broadcast: {
+    index: ['id'],
+    one: ['broadcast'],
+    many: ['broadcasts']
+  },
   build: {
     index: ['id', ['repository_id', 'number']],
     one: ['build'],
@@ -376,6 +381,35 @@ Travis.Entity = (function() {
       cache[bucket] = {};
     }
     return (_base = cache[bucket])[key] != null ? _base[key] : _base[key] = callback.call(this);
+  };
+
+  Entity.prototype.then = function(callback) {
+    if (callback != null) {
+      callback(this);
+    }
+    return this;
+  };
+
+  Entity.prototype.run = function() {
+    return this;
+  };
+
+  Entity.prototype["catch"] = function() {
+    return this;
+  };
+
+  Entity.prototype.onSuccess = function() {
+    return this;
+  };
+
+  Entity.prototype.onFailure = function() {
+    return this;
+  };
+
+  Entity.prototype.wrap = function() {
+    var delegations, wrapper, _k, _ref3;
+    delegations = 2 <= arguments.length ? __slice.call(arguments, 0, _k = arguments.length - 1) : (_k = 0, []), wrapper = arguments[_k++];
+    return (_ref3 = Travis.Promise.succeed(wrapper(this))).expect.apply(_ref3, delegations);
   };
 
   return Entity;
@@ -801,34 +835,46 @@ Travis.Session = (function() {
     this.data = {};
     Travis.Delegator.define(Travis.HTTP, this, this.github);
     Travis.Delegator.define(Travis.HTTP, this, this.github());
+    Travis.Delegator.defineSimple('each', this, this.accounts);
+    Travis.Delegator.defineSimple('each', this, this.broadcasts);
     Travis.Delegator.defineSimple('each', this, this.repositories);
   }
 
-  Session.prototype.account = function(options) {
+  Session.prototype.account = function(options, callback) {
     if (typeof options === 'string') {
       options = {
         login: options
       };
     }
-    return this.entity('account', options);
+    return this.entity('account', options, callback);
   };
 
   Session.prototype.accounts = function(options, callback) {
-    return this.load('/accounts', options, callback, function(result) {
+    var promise;
+    promise = this.load('/accounts', options, callback, function(result) {
       return result.accounts;
     });
+    return promise.iterate(Travis.Entity.account);
   };
 
-  Session.prototype.build = function(options) {
+  Session.prototype.build = function(options, callback) {
     if (typeof options === 'number') {
       options = {
         id: options
       };
     }
-    return this.entity('build', options);
+    return this.entity('build', options, callback);
   };
 
-  Session.prototype.repository = function(options) {
+  Session.prototype.broadcasts = function(options, callback) {
+    var promise;
+    promise = this.load('/broadcasts', options, callback, function(result) {
+      return result.broadcasts;
+    });
+    return promise.iterate(Travis.Entity.broadcast);
+  };
+
+  Session.prototype.repository = function(options, callback) {
     if (typeof options === 'string') {
       options = {
         slug: options
@@ -949,7 +995,7 @@ Travis.Session = (function() {
     });
   };
 
-  Session.prototype.entity = function(entityType, data, complete) {
+  Session.prototype.entity = function(entityType, data, callback, complete) {
     var entityName, index, indexKey, store, value, _k, _len2, _ref3;
     if (complete == null) {
       complete = false;
@@ -979,7 +1025,7 @@ Travis.Session = (function() {
         }
       }
     }
-    return entity;
+    return entity.then(callback);
   };
 
   Session.prototype.session = function(options) {
@@ -1092,6 +1138,23 @@ Travis.Entity.account = (function(_super) {
   };
 
   return account;
+
+})(Travis.Entity);
+
+Travis.Entity.broadcast = (function(_super) {
+  __extends(broadcast, _super);
+
+  function broadcast() {
+    return broadcast.__super__.constructor.apply(this, arguments);
+  }
+
+  broadcast.prototype.attributeNames = ['id', 'message'];
+
+  broadcast.prototype._fetch = function() {
+    return this.session.broadcasts();
+  };
+
+  return broadcast;
 
 })(Travis.Entity);
 

@@ -5,6 +5,11 @@ Travis.Entities =
     one:   ['account']
     many:  ['accounts']
 
+  broadcast:
+    index: ['id']
+    one:   ['broadcast']
+    many:  ['broadcasts']
+
   build:
     index: ['id', ['repository_id', 'number']]
     one:   ['build']

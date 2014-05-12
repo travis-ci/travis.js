@@ -77,6 +77,11 @@ Travis.Entities =
     one:   ['account']
     many:  ['accounts']
 
+  broadcast:
+    index: ['id']
+    one:   ['broadcast']
+    many:  ['broadcasts']
+
   build:
     index: ['id', ['repository_id', 'number']]
     one:   ['build']
@@ -161,6 +166,16 @@ class Travis.Entity
     cache[bucket]      ?= {}
     cache[bucket][key] ?= callback.call(this)
 
+  then: (callback) ->
+    callback(this) if callback?
+    return this
+
+  run: -> this
+  catch: -> this
+  onSuccess: -> this
+  onFailure: -> this
+  wrap: (delegations..., wrapper) ->
+    Travis.Promise.succeed(wrapper(this)).expect(delegations...)
 class Travis.HTTP
   @delegationMethods: -> ['get', 'head', 'post', 'put', 'patch', 'delete', 'request']
 
@@ -364,20 +379,28 @@ class Travis.Session
 
     Travis.Delegator.define Travis.HTTP, this, @github
     Travis.Delegator.define Travis.HTTP, this, @github()
+
+    Travis.Delegator.defineSimple 'each', this, @accounts
+    Travis.Delegator.defineSimple 'each', this, @broadcasts
     Travis.Delegator.defineSimple 'each', this, @repositories
 
-  account: (options) ->
+  account: (options, callback) ->
     options = { login: options } if typeof(options) == 'string'
-    @entity 'account', options
+    @entity 'account', options, callback
 
   accounts: (options, callback) ->
-    @load '/accounts', options, callback, (result) -> result.accounts
+    promise = @load '/accounts', options, callback, (result) -> result.accounts
+    promise.iterate(Travis.Entity.account)
 
-  build: (options) ->
+  build: (options, callback) ->
     options = { id: options } if typeof(options) == 'number'
-    @entity 'build', options
+    @entity 'build', options, callback
 
-  repository: (options) ->
+  broadcasts: (options, callback) ->
+    promise = @load '/broadcasts', options, callback, (result) -> result.broadcasts
+    promise.iterate(Travis.Entity.broadcast)
+
+  repository: (options, callback) ->
     options = { slug: options } if typeof(options) == 'string'
     options = { id:   options } if typeof(options) == 'number'
     @entity 'repository', options
@@ -439,7 +462,7 @@ class Travis.Session
   _apiName: (string) ->
     string.replace /[A-Z]/g, (g) -> "_" + g[0].toLowerCase()
 
-  entity: (entityType, data, complete = false) ->
+  entity: (entityType, data, callback, complete = false) ->
     if typeof(entityType) == 'string'
       entityName = entityType
       entityType = Travis.Entities[entityType]
@@ -451,7 +474,7 @@ class Travis.Session
         store                         = @_entityData(entityType, indexKey, index)
         store.complete                = true if complete
         store.data[@_clientName(key)] = @_parseField(key, value) for key, value of data
-    entity
+    entity.then(callback)
 
   session: (options) ->
     for key, value of @_options
@@ -502,6 +525,10 @@ Travis.System =
 class Travis.Entity.account extends Travis.Entity
   attributeNames: [ 'id', 'name', 'login', 'type', 'reposCount', 'subscribed' ]
   _fetch: -> @session.accounts(all: true)
+
+class Travis.Entity.broadcast extends Travis.Entity
+  attributeNames: [ 'id', 'message' ]
+  _fetch: -> @session.broadcasts()
 
 class Travis.Entity.build extends Travis.Entity
   attributeNames: [

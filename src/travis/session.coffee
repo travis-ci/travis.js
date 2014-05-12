@@ -11,20 +11,28 @@ class Travis.Session
 
     Travis.Delegator.define Travis.HTTP, this, @github
     Travis.Delegator.define Travis.HTTP, this, @github()
+
+    Travis.Delegator.defineSimple 'each', this, @accounts
+    Travis.Delegator.defineSimple 'each', this, @broadcasts
     Travis.Delegator.defineSimple 'each', this, @repositories
 
-  account: (options) ->
+  account: (options, callback) ->
     options = { login: options } if typeof(options) == 'string'
-    @entity 'account', options
+    @entity 'account', options, callback
 
   accounts: (options, callback) ->
-    @load '/accounts', options, callback, (result) -> result.accounts
+    promise = @load '/accounts', options, callback, (result) -> result.accounts
+    promise.iterate(Travis.Entity.account)
 
-  build: (options) ->
+  build: (options, callback) ->
     options = { id: options } if typeof(options) == 'number'
-    @entity 'build', options
+    @entity 'build', options, callback
 
-  repository: (options) ->
+  broadcasts: (options, callback) ->
+    promise = @load '/broadcasts', options, callback, (result) -> result.broadcasts
+    promise.iterate(Travis.Entity.broadcast)
+
+  repository: (options, callback) ->
     options = { slug: options } if typeof(options) == 'string'
     options = { id:   options } if typeof(options) == 'number'
     @entity 'repository', options
@@ -86,7 +94,7 @@ class Travis.Session
   _apiName: (string) ->
     string.replace /[A-Z]/g, (g) -> "_" + g[0].toLowerCase()
 
-  entity: (entityType, data, complete = false) ->
+  entity: (entityType, data, callback, complete = false) ->
     if typeof(entityType) == 'string'
       entityName = entityType
       entityType = Travis.Entities[entityType]
@@ -98,7 +106,7 @@ class Travis.Session
         store                         = @_entityData(entityType, indexKey, index)
         store.complete                = true if complete
         store.data[@_clientName(key)] = @_parseField(key, value) for key, value of data
-    entity
+    entity.then(callback)
 
   session: (options) ->
     for key, value of @_options
